@@ -278,7 +278,7 @@ class I18nProperties:
 
     def gen_ifilepath(cls, filepath, lang_code):
         if lang_code is None:
-            newfilepath = re.sub(r'(_[\w-]+)(\.[^\.]+|)$', r'\2', filepath)
+            newfilepath = re.sub(r'(_[a-zA-Z0-9-]+?)(\.[^\.]+|)$', r'\2', filepath)
             if filepath != newfilepath:
                 return newfilepath
             else:
