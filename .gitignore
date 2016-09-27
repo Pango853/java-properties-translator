@@ -2,4 +2,9 @@
 *.swp
 Thumbs.db
 .DS_Store
+*.cfg
+*.properties
+*.new
+*.bak
+*.tmp
 

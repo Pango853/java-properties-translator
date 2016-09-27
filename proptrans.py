@@ -1,16 +1,20 @@
-#!/bin/env python
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 '''
     TODO: NO native2ascii support
           You have convert ASCII properties to UTF-8 at first(native2ascii -reverse), otherwise it won't be translated properly.
     TODO: Support variables ({0})
     TODO: Support CRLF
+    TODO: Show error summary at the last
 '''
 
 import argparse
 from argparse import RawTextHelpFormatter
+import ConfigParser
 import re
 import os
+import sys
 import datetime
 from collections import OrderedDict
 
@@ -25,8 +29,8 @@ class MSTranslator:
         '''Get the access token from ADM. Note that token will only last for 10 minutes'''
 
         args = {
-            'client_id': 'ENTER YOUR CLIENT ID HERE!!!',
-            'client_secret': 'ENTER YOUR CLIENT SECRET HERE!!!',
+            'client_id': self._CLIENT_ID,
+            'client_secret': self._CLIENT_SECRET,
             'scope': 'http://api.microsofttranslator.com',
             'grant_type': 'client_credentials'
         }
@@ -44,16 +48,18 @@ class MSTranslator:
         return token
     #end get_token
 
-    def __init__(self):
-        self.token = None
+    def __init__(self, client_id, client_secret):
+        self._CLIENT_ID = client_id
+        self._CLIENT_SECRET = client_secret
+        self._token = None
     #end __init__
 
     def trans(self, lang_code_from, lang_code_to, text):
-        if self.token is None:
-            self.token = self.get_token()
+        if self._token is None:
+            self._token = self.get_token()
 
         #Call to Microsoft Translator Service
-        headers = {"Authorization ": self.token}
+        headers = {"Authorization ": self._token}
         url = "http://api.microsofttranslator.com/v2/Http.svc/Translate?text={}&to={}".format(text, lang_code_to)
 
         translation = None
@@ -62,10 +68,13 @@ class MSTranslator:
             response = requests.get(url, headers = headers)
             result = ElementTree.fromstring(response.text.encode('utf-8'))
             translation = result.text
+            if translation is None:
+                translation = '[FAILED]'
+                print('[ERROR] result = %s' % ElementTree.tostring(result))
         except OSError:
             translation = '[FAILED]'
 
-        return translation     
+        return translation
     #end get_text_and_translate()
 
 class PDict(OrderedDict):
@@ -369,6 +378,14 @@ if '__main__' == __name__:
     parser.add_argument('addfile', help='add properties file', nargs='?')
     args = parser.parse_args()
 
+    cfg_filepath = 'proptrans.cfg'
+    cfg = ConfigParser.SafeConfigParser()
+    if os.path.exists(cfg_filepath):
+        cfg.read(cfg_filepath)
+    else:
+        sys.stderr.write('Configuration file(%s) not found!\n' % cfg_filepath)
+        sys.exit(2)
+
     try:
         if 'add' == args.cmd:
             if args.lang is None:
@@ -381,7 +398,7 @@ if '__main__' == __name__:
             if args.lang is None:
                 raise ValueError('--from is required!')
 
-            translator = MSTranslator()
+            translator = MSTranslator(cfg.get('AZURE_DATAMARKET', 'CLIENT_ID'), cfg.get('AZURE_DATAMARKET', 'CLIENT_SECRET'))
             pf = I18nProperties(args.file)
             pf.translate(translator, args.base, args.lang)
         elif 'build' == args.cmd:
@@ -391,7 +408,7 @@ if '__main__' == __name__:
             parser.print_help()
 
     except ValueError as e:
-        print('ValueError: %s' % e)
-        exit(1)
+        sys.stderr.write('ValueError: %s!\n' % e)
+        sys.exit(1)
 
 #endif __main__
